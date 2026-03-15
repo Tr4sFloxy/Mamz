@@ -1,0 +1,59 @@
+name: Flutter Build APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: 'Job ID'
+        required: true
+      zip_path:
+        description: 'Path ke file zip di repo'
+        required: false
+      zip_url:
+        description: 'URL file zip'
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.x'
+          channel: 'stable'
+      
+      - name: Download ZIP
+        run: |
+          if [[ -n "${{ github.event.inputs.zip_url }}" ]]; then
+            wget -O project.zip "${{ github.event.inputs.zip_url }}"
+          elif [[ -n "${{ github.event.inputs.zip_path }}" ]]; then
+            cp "${{ github.event.inputs.zip_path }}" project.zip
+          else
+            echo "No ZIP source provided"
+            exit 1
+          fi
+      
+      - name: Extract ZIP
+        run: |
+          mkdir -p flutter_project
+          unzip project.zip -d flutter_project/
+          cd flutter_project
+          ls -la
+      
+      - name: Build APK
+        run: |
+          cd flutter_project
+          flutter clean
+          flutter pub get
+          flutter build apk --release
+      
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: apk-${{ github.event.inputs.job_id }}
+          path: flutter_project/build/app/outputs/flutter-apk/*.apk
